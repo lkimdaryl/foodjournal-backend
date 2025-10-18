@@ -11,7 +11,7 @@ router_post_review = APIRouter(
 )
 
 @router_post_review.post("/create_post_review")
-async def create_post_review(post_review: PostReviewBase, access_token: str = Cookie(None), db: Session = Depends(get_db)):
+async def create_post_review(post_review: PostReviewBase, access_token: str, db: Session = Depends(get_db)):
     """ 
     Create a new post review in the database. Endpoint receives an access token and
     a JSON string with post review information.     
@@ -32,7 +32,7 @@ async def create_post_review(post_review: PostReviewBase, access_token: str = Co
 
 
 @router_post_review.post("/update_post_review")
-async def update_post_review(post_review: PostReviewBase,  id: int, access_token: str = Cookie(None), db: Session = Depends(get_db)):
+async def update_post_review(post_review: PostReviewBase,  id: int, access_token: str, db: Session = Depends(get_db)):
     """ 
     Create a new post review in the database. Endpoint receives an access token and
     a JSON string with post review information.     
@@ -52,7 +52,7 @@ async def update_post_review(post_review: PostReviewBase,  id: int, access_token
     return await _service.update_post_review(post_review, db, access_token, id)
 
 @router_post_review.post("/delete_post_review")
-async def delete_post_review(id: int, access_token: str = Cookie(None), db: Session = Depends(get_db)):
+async def delete_post_review(id: int, access_token: str, db: Session = Depends(get_db)):
     """ 
     Delete a post review from the database. Endpoint receives an access token and
     a post id. The ID recevied in the post request is the ID of the post to remove.     
