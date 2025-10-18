@@ -1,5 +1,5 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends
 import schemas as _schemas
 import sqlalchemy.orm as _orm
 from sqlalchemy.orm.session import Session
@@ -84,7 +84,7 @@ async def update_user(request: _schemas.UpdateUserBase, accessToken: str, db: Se
     return await _service.update_user(request, accessToken, db)
 
 @router_auth.get("/get_user")
-async def get_user(accessToken: str, db: Session = Depends(get_db)):
+async def get_user(access_token: str, db: Session = Depends(get_db)):
     """
     Get the user information from the database based on the provided access token.
 
@@ -95,7 +95,7 @@ async def get_user(accessToken: str, db: Session = Depends(get_db)):
     Returns:
     - The user information from the database associated with the provided access token.
     """
-    return await _service.get_user_by_access_token(accessToken, db)
+    return await _service.get_user_by_access_token(access_token, db)
 
 @router_auth.post("/logout")
 async def logout(accessToken: str, db: Session = Depends(get_db)):
