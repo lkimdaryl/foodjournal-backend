@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status, Cookie
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
@@ -57,7 +57,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Cookie(None), 
+def get_current_user(token: str = Depends(oauth2_scheme), 
                      db: Session = Depends(get_db)):
     """
     Retrieves the user ID associated with the provided JSON Web Token (JWT).
