@@ -218,7 +218,6 @@ async def get_user_by_access_token(access_token: str, db: _orm.Session):
     Returns: 
     - The user object.
     """
-    print("Received token:", access_token)
     try:
         blacklisted_token = db.query(TokenBlacklistModel).filter(
             TokenBlacklistModel.access_token == access_token

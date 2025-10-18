@@ -1,5 +1,5 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 import schemas as _schemas
 import sqlalchemy.orm as _orm
 from sqlalchemy.orm.session import Session
@@ -31,7 +31,9 @@ async def create_user(user: _schemas.UserBase, db: Session = Depends(get_db)):
     - If the username already exists in the database.
     - If an error occurs while creating the user.
     """
-    return await _service.create_user(user, db)  
+    return await _service.create_user(user, db)
+  
+  
 
 @router_auth.post("/login")
 async def login(request: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -59,7 +61,7 @@ async def login(request: OAuth2PasswordRequestForm = Depends(), db: Session = De
     return await _service.login(request, db)
 
 @router_auth.patch("/update_user")
-async def update_user(request: _schemas.UpdateUserBase, access_token: str=Cookie(None), db: Session = Depends(get_db)):
+async def update_user(request: _schemas.UpdateUserBase, accessToken: str, db: Session = Depends(get_db)):
     """
     Updates a user's information in the database.
 
@@ -79,10 +81,10 @@ async def update_user(request: _schemas.UpdateUserBase, access_token: str=Cookie
     - If user does not exist in the database.
     - If an error occurs while updating the user.
     """
-    return await _service.update_user(request, access_token, db)
+    return await _service.update_user(request, accessToken, db)
 
 @router_auth.get("/get_user")
-async def get_user(access_token: str = Cookie(None), db: Session = Depends(get_db)):
+async def get_user(accessToken: str, db: Session = Depends(get_db)):
     """
     Get the user information from the database based on the provided access token.
 
@@ -93,11 +95,10 @@ async def get_user(access_token: str = Cookie(None), db: Session = Depends(get_d
     Returns:
     - The user information from the database associated with the provided access token.
     """
-    print("Received token:", access_token)
-    return await _service.get_user_by_access_token(access_token, db)
+    return await _service.get_user_by_access_token(accessToken, db)
 
 @router_auth.post("/logout")
-async def logout(access_token: str = Cookie(None), db: Session = Depends(get_db)):
+async def logout(accessToken: str, db: Session = Depends(get_db)):
     """
     Logs out the user by invalidating their access token.
 
@@ -107,4 +108,4 @@ async def logout(access_token: str = Cookie(None), db: Session = Depends(get_db)
     Returns:
     - A dictionary with a message indicating that the access token was invalidated.
     """
-    return await _service.logout(access_token, db)
+    return await _service.logout(accessToken, db)
