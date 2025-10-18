@@ -93,6 +93,7 @@ async def get_user(access_token: str = Cookie(None), db: Session = Depends(get_d
     Returns:
     - The user information from the database associated with the provided access token.
     """
+    print("Received token:", access_token)
     return await _service.get_user_by_access_token(access_token, db)
 
 @router_auth.post("/logout")
