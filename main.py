@@ -11,7 +11,7 @@ origins = [
     "http://localhost",
     "http://localhost:3000",
     "http://localhost:6542",
-    "https://foodjournal2-0.onrender.com",
+    "https://foodjournal-backend.onrender.com",
 ]
 
 app.add_middleware(
