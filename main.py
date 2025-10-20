@@ -5,6 +5,30 @@ import uvicorn
 from auth.router import router_auth
 from post_review.router import router_post_review
 
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
+from datetime import datetime
+from db_jobs import delete_expired_blacklisted_tokens
+
+# ----------------- Scheduler Configuration -----------------
+scheduler = BackgroundScheduler()
+
+# Define the job: run the cleanup function once every 24 hours
+scheduler.add_job(
+    delete_expired_blacklisted_tokens, 
+    'interval', 
+    hours=24, 
+    id='blacklist_cleanup_job',
+    name='Blacklist Token Cleanup',
+    # Optional: Run immediately when the app starts
+    next_run_time=datetime.now() 
+)
+# Start the scheduler
+scheduler.start()
+
+# Ensure the scheduler shuts down when the Python process exits (crucial for clean restarts)
+atexit.register(lambda: scheduler.shutdown())
+
 app = FastAPI()
 
 origins = [

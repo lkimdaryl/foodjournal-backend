@@ -4,9 +4,13 @@ import schemas as _schemas
 import sqlalchemy.orm as _orm
 from sqlalchemy.orm.session import Session
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
+from fastapi.security import HTTPAuthorizationCredentials
 import auth.service as _service
 from auth.model import UserModel #, VisitorModel
 from service_database import get_db
+from auth.utils import verify, create_access_token, get_current_user
+from typing import Annotated
+from auth.utils import bearer_scheme
 
 router_auth = APIRouter(
     prefix="/api/v1/auth",
@@ -61,7 +65,11 @@ async def login(request: OAuth2PasswordRequestForm = Depends(), db: Session = De
     return await _service.login(request, db)
 
 @router_auth.patch("/update_user")
-async def update_user(request: _schemas.UpdateUserBase, accessToken: str, db: Session = Depends(get_db)):
+async def update_user(
+    request: _schemas.UpdateUserBase, 
+    user_id: Annotated[int, Depends(get_current_user)], 
+    db: Session = Depends(get_db)):
+
     """
     Updates a user's information in the database.
 
@@ -81,24 +89,30 @@ async def update_user(request: _schemas.UpdateUserBase, accessToken: str, db: Se
     - If user does not exist in the database.
     - If an error occurs while updating the user.
     """
-    return await _service.update_user(request, accessToken, db)
+    return await _service.update_user(request, user_id, db)
 
-@router_auth.get("/get_user")
-async def get_user(access_token: str, db: Session = Depends(get_db)):
+@router_auth.get("/get_user", dependencies=[Depends(bearer_scheme)])
+async def get_user(user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """
-    Get the user information from the database based on the provided access token.
+    Retrieves the authenticated user's profile information from the database.
+
+    This endpoint **automatically extracts the access token** from the 'Authorization: Bearer <token>' 
+    header of the incoming request. The `get_current_user` dependency validates the token 
+    (checking for validity, expiration, and blacklisting) and returns the associated user ID.
 
     Args:
-    - accessToken (str): The access token used to authenticate the user.
+    - user_id (int): The ID of the authenticated user, automatically resolved by the 
+                     `Depends(get_current_user)` dependency from the request's JWT.
     - db (Session, optional): The database session. Defaults to Depends(get_db).
 
     Returns:
-    - The user information from the database associated with the provided access token.
+    - The user profile data (e.g., name, email, settings) retrieved from the database 
+      associated with the authenticated user ID.
     """
-    return await _service.get_user_by_access_token(access_token, db)
+    return await _service.get_user_profile_info(user_id, db)
 
 @router_auth.post("/logout")
-async def logout(accessToken: str, db: Session = Depends(get_db)):
+async def logout(token_credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme), db: Session = Depends(get_db)):
     """
     Logs out the user by invalidating their access token.
 
@@ -108,4 +122,5 @@ async def logout(accessToken: str, db: Session = Depends(get_db)):
     Returns:
     - A dictionary with a message indicating that the access token was invalidated.
     """
+    accessToken = token_credentials.credentials
     return await _service.logout(accessToken, db)

@@ -3,6 +3,8 @@ from sqlalchemy.orm.session import Session
 from service_database import get_db
 from schemas import PostReviewBase
 import post_review.service as _service
+from typing import Annotated
+from auth.utils import get_current_user
 
 
 router_post_review = APIRouter(
@@ -11,7 +13,7 @@ router_post_review = APIRouter(
 )
 
 @router_post_review.post("/create_post_review")
-async def create_post_review(post_review: PostReviewBase, access_token: str, db: Session = Depends(get_db)):
+async def create_post_review(post_review: PostReviewBase, user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """ 
     Create a new post review in the database. Endpoint receives an access token and
     a JSON string with post review information.     
@@ -28,11 +30,15 @@ async def create_post_review(post_review: PostReviewBase, access_token: str, db:
     - If the user is not found 
     - If an error occured whilst creating the post
     """
-    return await _service.create_post_review(post_review, db, access_token)
+    return await _service.create_post_review(post_review, db, user_id)
 
 
 @router_post_review.post("/update_post_review")
-async def update_post_review(post_review: PostReviewBase,  id: int, access_token: str, db: Session = Depends(get_db)):
+async def update_post_review(
+    post_review: PostReviewBase,  
+    post_id: int, 
+    user_id: Annotated[int, Depends(get_current_user)], 
+    db: Session = Depends(get_db)):
     """ 
     Create a new post review in the database. Endpoint receives an access token and
     a JSON string with post review information.     
@@ -49,10 +55,10 @@ async def update_post_review(post_review: PostReviewBase,  id: int, access_token
     - If the user or the post is not found 
     - If an error occured whilst updating the post
     """
-    return await _service.update_post_review(post_review, db, access_token, id)
+    return await _service.update_post_review(post_review, post_id, user_id, db)
 
 @router_post_review.post("/delete_post_review")
-async def delete_post_review(id: int, access_token: str, db: Session = Depends(get_db)):
+async def delete_post_review(post_id: int, user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """ 
     Delete a post review from the database. Endpoint receives an access token and
     a post id. The ID recevied in the post request is the ID of the post to remove.     
@@ -69,7 +75,7 @@ async def delete_post_review(id: int, access_token: str, db: Session = Depends(g
     - If the user or the post is not found 
     - If an error occured whilst deleting the post
     """
-    return await _service.delete_post_review(id, db, access_token)
+    return await _service.delete_post_review(post_id, user_id, db)
   
 @router_post_review.get("/get_post_review")
 async def get_post_reviews(db: Session = Depends(get_db)):

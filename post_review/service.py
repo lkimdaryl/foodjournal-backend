@@ -46,7 +46,7 @@ async def get_post_reviews(db: _orm.Session):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Posts could not be retrieved: {e}")
 
-async def create_post_review(post_review: PostReviewBase, db: _orm.Session, access_token: str):
+async def create_post_review(post_review: PostReviewBase, db: _orm.Session, user_id: int):
     """
     Creates a new post review in the database.
     Args:
@@ -58,7 +58,6 @@ async def create_post_review(post_review: PostReviewBase, db: _orm.Session, acce
     Raises:
     - HTTPException: If the user is not found or if the post could not be added
     """
-    user_id = get_current_user(access_token, db)
 
     try:
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
@@ -84,7 +83,7 @@ async def create_post_review(post_review: PostReviewBase, db: _orm.Session, acce
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=400, detail=f"Post could not be added: {str(e)}")
     
-async def update_post_review(post_review: PostReviewBase, db: _orm.Session, access_token: str, id: int):
+async def update_post_review(post_review: PostReviewBase, post_id: int, user_id: int, db: _orm.Session):
     """
     Update an existing post review in the database.
     Args:
@@ -97,7 +96,6 @@ async def update_post_review(post_review: PostReviewBase, db: _orm.Session, acce
     Raises:
     - HTTPException: If the user is not found or if the post could not be updated.
     """
-    user_id = get_current_user(access_token, db)
 
     try:
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
@@ -105,7 +103,7 @@ async def update_post_review(post_review: PostReviewBase, db: _orm.Session, acce
             raise HTTPException(status_code=404, detail="User not found")
 
         # may not be the best solution. What if there are missing fields?
-        db.query(PostReviewModel).filter(PostReviewModel.id == id).update({
+        db.query(PostReviewModel).filter(PostReviewModel.id == post_id).update({
             'food_name': post_review.food_name,
             'image': post_review.image,
             'restaurant_name': post_review.restaurant_name,
@@ -122,7 +120,7 @@ async def update_post_review(post_review: PostReviewBase, db: _orm.Session, acce
         print(f"Error occurred: {e}")  # Log the error message
         raise HTTPException(status_code=400, detail=f"Post could not be updated: {str(e)}")
 
-async def delete_post_review(id: int, db: _orm.Session, access_token: str):
+async def delete_post_review(post_id: int, user_id:int, db: _orm.Session):
     """
     Deletes a post review from the database.
     Args:
@@ -134,18 +132,17 @@ async def delete_post_review(id: int, db: _orm.Session, access_token: str):
     Raises:
     - HTTPException: If the user or the post is not found or if the post could not be deleted
     """
-    user_id = get_current_user(access_token, db)
 
     try:
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        post = db.query(PostReviewModel).filter(PostReviewModel.id == id).first()
+        post = db.query(PostReviewModel).filter(PostReviewModel.id == post_id).first()
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
                 
-        db.query(PostReviewModel).filter(PostReviewModel.id == id).delete()
+        db.query(PostReviewModel).filter(PostReviewModel.id == post_id).delete()
         db.commit()
 
         return {'message': f"Post {id} deleted"}

@@ -152,7 +152,7 @@ async def get_user_by_id(user_id: int, db: _orm.Session):
             detail="User could not be retrieved"
         )
 
-async def update_user(request: _schemas.UpdateUserBase, accessToken: str, db: _orm.Session):
+async def update_user(request: _schemas.UpdateUserBase, user_id: int, db: _orm.Session):
     """
     Update a user's information based on the provided request and access token.
     Args:
@@ -163,7 +163,6 @@ async def update_user(request: _schemas.UpdateUserBase, accessToken: str, db: _o
     - A dictionary with a message indicating that the user was updated.
     """
     try:
-        user_id = get_current_user(accessToken, db)
         update_data = request.model_dump(exclude_unset=True)
         if not update_data:
             raise HTTPException(status_code=400, detail=f"No fields to update")
@@ -209,7 +208,7 @@ def user_exists(username: str, db: _orm.Session):
     result = db.query(UserModel).filter(UserModel.username == username).first()
     return True if result is not None else False
 
-async def get_user_by_access_token(access_token: str, db: _orm.Session):
+async def get_user_profile_info(user_id: int, db: _orm.Session):
     """
     Retrieves a user from the database based on their access token.
     Args:
@@ -219,16 +218,6 @@ async def get_user_by_access_token(access_token: str, db: _orm.Session):
     - The user object.
     """
     try:
-        blacklisted_token = db.query(TokenBlacklistModel).filter(
-            TokenBlacklistModel.access_token == access_token
-            ).first()
-        if blacklisted_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Access token is no longer usable. Please log in again."
-            )
-
-        user_id = get_current_user(access_token, db)
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
 
         if not user:
