@@ -36,6 +36,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:6542",
     "https://foodjournal-backend.onrender.com",
+    "https://foodjournal-p9bypxj9x-lkimdaryls-projects.vercel.app"
 ]
 
 app.add_middleware(
