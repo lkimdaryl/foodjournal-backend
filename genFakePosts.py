@@ -19,7 +19,6 @@ def generate_post_reviews(db: Session, num_posts: int = 10):
         )
         db.add(post)
     db.commit()
-    print(f"{num_posts} post reviews added to the database.")
 
 # Setup database connection and call the function
 if __name__ == "__main__":

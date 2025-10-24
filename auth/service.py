@@ -1,19 +1,12 @@
 from auth.model import UserModel, TokenBlacklistModel
-from auth.utils import verify, create_access_token, get_current_user
-from fastapi import Depends, HTTPException, status
+from auth.utils import verify, create_access_token
+from fastapi import HTTPException, status
 from email_validator import validate_email
-from sqlalchemy.orm import Session
 from auth.utils import bcrypt
-from sqlalchemy import DateTime
-from uuid import uuid4
-from sqlalchemy import or_, and_, update, delete, insert, select
+from sqlalchemy import or_, update
 from datetime import timedelta
 import sqlalchemy.orm as _orm
 import schemas as _schemas
-import datetime as _datetime
-import auth.utils as util
-import random
-import os
 
 def email_exists(db: _orm.Session, email: str):
     """
@@ -43,7 +36,7 @@ def get_next_id(db: _orm.Session):
     """ 
     Get the next usable ID from the database. Check
     the ID everytime instead of using local count to ensure that
-    if the server restarts the count isn't reset.
+    if the server restarts, the count isn't reset.
     Args:
     - db: Database session
     Returns: 
@@ -67,7 +60,6 @@ async def create_user(user, db: _orm.Session):
     elif (not validate_email(user.email)):
         raise HTTPException(status_code=400, detail=f"Invalid email address")
     elif (user_exists(user.username, db)):
-        print(user.username)
         raise HTTPException(status_code=400, detail=f"User {user.username} already exists")
 
     try:
@@ -154,10 +146,10 @@ async def get_user_by_id(user_id: int, db: _orm.Session):
 
 async def update_user(request: _schemas.UpdateUserBase, user_id: int, db: _orm.Session):
     """
-    Update a user's information based on the provided request and access token.
+    Update a user's information based on the provided request and the user id associated with it.
     Args:
     - request: An instance of the UpdateUserBase schema containing the updated user information.
-    - accessToken: The access token of the user making the request.
+    - user_id: ID of the user to update
     - db: The database session.
     Returns: 
     - A dictionary with a message indicating that the user was updated.
@@ -200,8 +192,8 @@ def user_exists(username: str, db: _orm.Session):
     """
     Check if a user with the given username exists in the database.
     Args:
-    - username (str): The username to check.
-    - db (_orm.Session): The database session.
+    - username: The username to check.
+    - db: The database session.
     Returns:
     - True if the user exists, False otherwise.
     """
@@ -212,7 +204,7 @@ async def get_user_profile_info(user_id: int, db: _orm.Session):
     """
     Retrieves a user from the database based on their access token.
     Args:
-    - access_token: The access token of the user.
+    - user_id: The ID of the user to retrieve.
     - db: The database session.
     Returns: 
     - The user object.

@@ -42,9 +42,7 @@ async def create_user(user: _schemas.UserBase, db: Session = Depends(get_db)):
 @router_auth.post("/login")
 async def login(request: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
-    Endpoint for user login.    
-
-    This endpoint receives a JSON string with user information and authenticates the user.
+    Logs the user in. This endpoint receives a JSON string with user information and authenticates the user.
     It expects a POST request with the following JSON payload:      
     - {     
         "username": "string",   
@@ -91,7 +89,7 @@ async def update_user(
     """
     return await _service.update_user(request, user_id, db)
 
-@router_auth.get("/get_user", dependencies=[Depends(bearer_scheme)])
+@router_auth.get("/get_user")
 async def get_user(user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """
     Retrieves the authenticated user's profile information from the database.

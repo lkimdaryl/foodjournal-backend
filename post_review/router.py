@@ -15,20 +15,22 @@ router_post_review = APIRouter(
 @router_post_review.post("/create_post_review")
 async def create_post_review(post_review: PostReviewBase, user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """ 
-    Create a new post review in the database. Endpoint receives an access token and
-    a JSON string with post review information.     
-    
-    Args:       
-    - post_review (_schemas.PostReviewBase): The post review information to create.   
-    - access_token (str): The user's access token.    
-    - db (Session, optional): The database session. Defaults to Depends(get_db).      
-    
-    Returns:    
-    - A dictionary indicating whether the post was created successfully.
+    Create a new post review in the database. Requires a JSON string with 
+    post review information.
 
-    Raises HTTPException:    
-    - If the user is not found 
-    - If an error occured whilst creating the post
+    Authentication:
+    - The user's access token is automatically extracted from the `Authorization` header.
+
+    Args:
+    - post_review (PostReviewBase): The post review data to create.
+    - user_id (int): The ID of the authenticated user (extracted from the token in headers).
+    - db (Session): The database session dependency.
+
+    Returns:
+    - A dictionary indicating whether the post review was created successfully.
+
+    Raises:
+    - HTTPException: If the user is not found or if an error occurs while creating the review.
     """
     return await _service.create_post_review(post_review, db, user_id)
 
@@ -40,41 +42,45 @@ async def update_post_review(
     user_id: Annotated[int, Depends(get_current_user)], 
     db: Session = Depends(get_db)):
     """ 
-    Create a new post review in the database. Endpoint receives an access token and
-    a JSON string with post review information.     
-    
-    Args:       
-    - post_review (_schemas.PostReviewBase): The post review information to create.       
-    - access_token (str): The user's access token.        
-    - db (Session, optional): The database session. Defaults to Depends(get_db).        
-    
-    Returns:        
-    - A dictionary indicating whether the post was updated successfully.
-    
-    Raises HTTPException:        
-    - If the user or the post is not found 
-    - If an error occured whilst updating the post
+    Updates an existing post review in the database. Requires a JSON string with 
+    post review information.     
+
+    Authentication:
+    - The user's access token is automatically extracted from the `Authorization` header.
+
+    Args:
+    - post_review (PostReviewBase): The updated post review data.
+    - post_id (int): The ID of the post to update.
+    - user_id (int): The ID of the authenticated user (extracted from the token in headers).
+    - db (Session): The database session dependency.
+
+    Returns:
+    - A dictionary indicating whether the post review was updated successfully.
+
+    Raises:
+    - HTTPException: If the user or post is not found, or if an error occurs during the update.
     """
     return await _service.update_post_review(post_review, post_id, user_id, db)
 
 @router_post_review.post("/delete_post_review")
 async def delete_post_review(post_id: int, user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """ 
-    Delete a post review from the database. Endpoint receives an access token and
-    a post id. The ID recevied in the post request is the ID of the post to remove.     
+    Delete a post review from the database.
     
-    Args:   
-    - id (int): The ID of the post to delete. 
-    - access_token (str): The user's access token.    
-    - db (Session, optional): The database session. Defaults to Depends(get_db).      
-    
-    Returns:    
-    - A dictionary indicating whether the post was deleted successfully.
-    
-    Raises HTTPException:    
-    - If the user or the post is not found 
-    - If an error occured whilst deleting the post
-    """
+    Authentication:
+    - The user's access token is automatically extracted from the `Authorization` header.
+
+    Args:
+    - post_id (int): The ID of the post to delete.
+    - user_id (int): The ID of the authenticated user (extracted from the token in headers).
+    - db (Session): The database session dependency.
+
+    Returns:
+    - A dictionary indicating whether the post review was deleted successfully.
+
+    Raises:
+    - HTTPException: If the user or post is not found, or if an error occurs while deleting.
+   """
     return await _service.delete_post_review(post_id, user_id, db)
   
 @router_post_review.get("/get_post_review")

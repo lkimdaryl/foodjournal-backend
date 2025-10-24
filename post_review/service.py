@@ -52,7 +52,7 @@ async def create_post_review(post_review: PostReviewBase, db: _orm.Session, user
     Args:
     - post_review: Post review information
     - db: Database session
-    - access_token: User access token
+    - user_id: ID of the user creating the post review
     Returns: 
     - Message indicating whether the post was created successfully
     Raises:
@@ -88,9 +88,10 @@ async def update_post_review(post_review: PostReviewBase, post_id: int, user_id:
     Update an existing post review in the database.
     Args:
     - post_review (PostReviewBase): The updated post review information.
+    - post_id (int): The ID of the post review to update.
+    - user_id (int): The ID of the user making the update.
     - db (_orm.Session): The database session.
-    - access_token (str): The user's access token.
-    - id (int): The ID of the post review to update.
+
     Returns:
     - dict: A dictionary with a message indicating the post was updated.
     Raises:
@@ -124,9 +125,10 @@ async def delete_post_review(post_id: int, user_id:int, db: _orm.Session):
     """
     Deletes a post review from the database.
     Args:
-    - id: Post review ID
+    - post_id: ID of the post to delete 
+    - user_id: ID of the user requesting the deletion
     - db: Database session
-    - access_token: User access token
+
     Returns: 
     - Message indicating whether the post was deleted successfully
     Raises:
@@ -158,6 +160,7 @@ async def get_posts_from_id(user_id: int, db: _orm.Session):
     Args:
     - user_id: The ID of the user associated with the post review
     - db: Database session
+   
     Returns: 
     - A list of posts from the database that is associated with the provided user ID
     Raises:

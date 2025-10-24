@@ -29,6 +29,7 @@ scheduler.start()
 # Ensure the scheduler shuts down when the Python process exits (crucial for clean restarts)
 atexit.register(lambda: scheduler.shutdown())
 
+# ----------------- App Configuration -----------------
 app = FastAPI()
 
 origins = [
