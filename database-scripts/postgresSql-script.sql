@@ -1,0 +1,30 @@
+DROP TABLE post;
+DROP TABLE fd_users;
+
+CREATE TABLE IF NOT EXISTS fd_users (
+  id SERIAL PRIMARY KEY,
+  first_name VARCHAR(64) NOT NULL,
+  last_name VARCHAR(64) NOT NULL,
+  username VARCHAR(255) NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  email VARCHAR(255),
+  profile_picture TYPE TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS post (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES fd_users(id),
+  food_name VARCHAR(64) NOT NULL,
+  image TYPE TEXT,
+  restaurant_name VARCHAR(64),
+  rating REAL NOT NULL,
+  review VARCHAR(500) NOT NULL,
+  tags VARCHAR(500)
+);
+
+CREATE TABLE IF NOT EXISTS blacklist (
+  id SERIAL PRIMARY KEY,
+  access_token VARCHAR(500) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -27,6 +27,6 @@ CREATE TABLE if not exists post (
 
 CREATE TABLE if not exists blacklist (
   id int primary key auto_increment,
-    access_token varchar(500) not null,
+  access_token varchar(500) not null,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
