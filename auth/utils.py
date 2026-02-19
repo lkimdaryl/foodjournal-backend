@@ -126,6 +126,6 @@ def get_current_user(
         username: str = payload.get("email")
         if username is None:
             raise credentials_exception
-        return payload.get("user_id")
+        return int(payload.get("user_id"))
     except Exception as e:
         raise credentials_exception

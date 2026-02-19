@@ -1,5 +1,4 @@
-from pydantic import BaseModel
-import datetime as dt
+from pydantic import BaseModel, field_validator
 from typing import Optional
 
 # ===============================================================
@@ -26,13 +25,19 @@ class UpdateUserBase(BaseModel):
 # Post schema
 # ===============================================================
 class PostReviewBase(BaseModel):
-    user_id: int
     food_name: str
     image: Optional[str] = None
     restaurant_name: Optional[str] = None
     rating: float
-    review: str 
+    review: str
     tags: Optional[str] = None
+
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, v: float) -> float:
+        if not 1.0 <= v <= 5.0:
+            raise ValueError("Rating must be between 1.0 and 5.0")
+        return v
 
 # ===============================================================
 # Token Blacklist schema

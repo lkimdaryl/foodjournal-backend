@@ -33,16 +33,28 @@ async def get_post_reviews(db: _orm.Session):
             .limit(MAX_POSTS_TO_FETCH)\
             .all()
         if not posts:
-            raise HTTPException(status_code=404, detail="No posts found")
-        
+            return []
+
         # Convert the SQLAlchemy query result to a list of dictionaries
         posts = [
-            {**post.PostReviewModel.__dict__, 
-            "username": post.UserModel.username,
-            "profile_pic": post.UserModel.profile_picture if hasattr(post.UserModel, 'profile_picture') else None}  # Add 'profile_pic' key and assign the value if available
-                 for post in posts
+            {
+                "id": post.PostReviewModel.id,
+                "user_id": post.PostReviewModel.user_id,
+                "food_name": post.PostReviewModel.food_name,
+                "image": post.PostReviewModel.image,
+                "restaurant_name": post.PostReviewModel.restaurant_name,
+                "rating": post.PostReviewModel.rating,
+                "review": post.PostReviewModel.review,
+                "tags": post.PostReviewModel.tags,
+                "created_at": str(post.PostReviewModel.created_at) if post.PostReviewModel.created_at else None,
+                "username": post.UserModel.username,
+                "profile_pic": post.UserModel.profile_picture,
+            }
+            for post in posts
         ]
         return posts
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Posts could not be retrieved: {e}")
 
@@ -77,7 +89,9 @@ async def create_post_review(post_review: PostReviewBase, db: _orm.Session, user
         db.commit()
 
         return {'message': f"Post {post_review.id} created"}
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         print(f"Error occurred: {e}")
@@ -99,11 +113,12 @@ async def update_post_review(post_review: PostReviewBase, post_id: int, user_id:
     """
 
     try:
-        user = db.query(UserModel).filter(UserModel.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        post = db.query(PostReviewModel).filter(PostReviewModel.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        if post.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this post")
 
-        # may not be the best solution. What if there are missing fields?
         db.query(PostReviewModel).filter(PostReviewModel.id == post_id).update({
             'food_name': post_review.food_name,
             'image': post_review.image,
@@ -111,14 +126,16 @@ async def update_post_review(post_review: PostReviewBase, post_id: int, user_id:
             'rating': post_review.rating,
             'review': post_review.review,
             'tags': post_review.tags})
-        
+
         db.commit()
 
-        return {'message': f"Post {id} updated"}
-    
+        return {'message': f"Post {post_id} updated"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
-        print(f"Error occurred: {e}")  # Log the error message
+        print(f"Error occurred: {e}")
         raise HTTPException(status_code=400, detail=f"Post could not be updated: {str(e)}")
 
 async def delete_post_review(post_id: int, user_id:int, db: _orm.Session):
@@ -136,22 +153,22 @@ async def delete_post_review(post_id: int, user_id:int, db: _orm.Session):
     """
 
     try:
-        user = db.query(UserModel).filter(UserModel.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         post = db.query(PostReviewModel).filter(PostReviewModel.id == post_id).first()
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
-                
-        db.query(PostReviewModel).filter(PostReviewModel.id == post_id).delete()
+        if post.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this post")
+
+        db.delete(post)
         db.commit()
 
-        return {'message': f"Post {id} deleted"}
-    
+        return {'message': f"Post {post_id} deleted"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
-        print(f"Error occurred: {e}")  # Log the error message
+        print(f"Error occurred: {e}")
         raise HTTPException(status_code=400, detail=f"Post could not be deleted: {str(e)}")
 
 async def get_posts_from_id(user_id: int, db: _orm.Session):
@@ -172,16 +189,28 @@ async def get_posts_from_id(user_id: int, db: _orm.Session):
             .join(UserModel, PostReviewModel.user_id == UserModel.id)\
             .all()
         if not posts:
-            raise HTTPException(status_code=404, detail="No posts found")
-        
+            return []
+
         # Convert the SQLAlchemy query result to a list of dictionaries
         posts = [
-            {**post.PostReviewModel.__dict__, 
-            "username": post.UserModel.username,
-            "profile_pic": post.UserModel.profile_picture if hasattr(post.UserModel, 'profile_picture') else None}  # Add 'profile_pic' key and assign the value if available
-                 for post in posts
+            {
+                "id": post.PostReviewModel.id,
+                "user_id": post.PostReviewModel.user_id,
+                "food_name": post.PostReviewModel.food_name,
+                "image": post.PostReviewModel.image,
+                "restaurant_name": post.PostReviewModel.restaurant_name,
+                "rating": post.PostReviewModel.rating,
+                "review": post.PostReviewModel.review,
+                "tags": post.PostReviewModel.tags,
+                "created_at": str(post.PostReviewModel.created_at) if post.PostReviewModel.created_at else None,
+                "username": post.UserModel.username,
+                "profile_pic": post.UserModel.profile_picture,
+            }
+            for post in posts
         ]
         return posts[:MAX_POSTS_TO_FETCH]
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=400, detail=f"Post could not be retrieved")

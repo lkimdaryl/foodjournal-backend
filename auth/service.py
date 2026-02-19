@@ -1,7 +1,7 @@
 from auth.model import UserModel, TokenBlacklistModel
 from auth.utils import verify, create_access_token
 from fastapi import HTTPException, status
-from email_validator import validate_email
+from email_validator import validate_email, EmailNotValidError
 from auth.utils import bcrypt
 from sqlalchemy import or_, update
 from datetime import timedelta
@@ -32,18 +32,6 @@ def is_login(db: _orm.Session, email: str):
     rslt = db.query(UserModel).filter(UserModel.email == email).first()
     return True if rslt is not None else False
 
-def get_next_id(db: _orm.Session):
-    """ 
-    Get the next usable ID from the database. Check
-    the ID everytime instead of using local count to ensure that
-    if the server restarts, the count isn't reset.
-    Args:
-    - db: Database session
-    Returns: 
-    - Next usable ID
-    """
-    rslt = db.query(UserModel).order_by(UserModel.id).all()[-1]
-    return rslt.id + 1
 
 async def create_user(user, db: _orm.Session):
     """ 
@@ -57,9 +45,11 @@ async def create_user(user, db: _orm.Session):
     """
     if (email_exists(db, user.email)):
         raise HTTPException(status_code=400, detail=f"Email {user.email} already exists")
-    elif (not validate_email(user.email)):
-        raise HTTPException(status_code=400, detail=f"Invalid email address")
-    elif (user_exists(user.username, db)):
+    try:
+        validate_email(user.email, check_deliverability=False)
+    except EmailNotValidError:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    if (user_exists(user.username, db)):
         raise HTTPException(status_code=400, detail=f"User {user.username} already exists")
 
     try:
@@ -130,19 +120,13 @@ async def get_user_by_id(user_id: int, db: _orm.Session):
     Returns: 
     - User information
     """
-    try:
-        user = db.query(UserModel).filter(UserModel.id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        return user.username
-    except:
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User could not be retrieved"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
         )
+    return user.username
 
 async def update_user(request: _schemas.UpdateUserBase, user_id: int, db: _orm.Session):
     """
@@ -161,8 +145,10 @@ async def update_user(request: _schemas.UpdateUserBase, user_id: int, db: _orm.S
         if update_data.get("email"):
             if (email_exists(db, update_data.get("email"))):
                 raise HTTPException(status_code=400, detail=f'Email {update_data.get("email")} already exists')
-            elif (not validate_email(update_data.get("email"))):
-                raise HTTPException(status_code=400, detail=f"Invalid email address")
+            try:
+                validate_email(update_data.get("email"), check_deliverability=False)
+            except EmailNotValidError:
+                raise HTTPException(status_code=400, detail="Invalid email address")
         if update_data.get("username"):
             username = update_data.get("username")
             if (user_exists(username, db)):
@@ -185,8 +171,8 @@ async def update_user(request: _schemas.UpdateUserBase, user_id: int, db: _orm.S
     except HTTPException as http_exception:
         raise http_exception  # Re-raise HTTPException with custom message and status code
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred", success=False)
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 def user_exists(username: str, db: _orm.Session):
     """
@@ -218,10 +204,14 @@ async def get_user_profile_info(user_id: int, db: _orm.Session):
                 detail="User not found"
             )
         
-        del user.password
-        del user.created_at
-        
-        return user
+        return {
+            "id": user.id,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "username": user.username,
+            "email": user.email,
+            "profile_picture": user.profile_picture,
+        }
     except HTTPException as http_exception:
         raise http_exception  # Re-raise HTTPException with custom message and status code
 

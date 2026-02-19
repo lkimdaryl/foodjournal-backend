@@ -35,7 +35,7 @@ async def create_post_review(post_review: PostReviewBase, user_id: Annotated[int
     return await _service.create_post_review(post_review, db, user_id)
 
 
-@router_post_review.post("/update_post_review")
+@router_post_review.patch("/update_post_review")
 async def update_post_review(
     post_review: PostReviewBase,  
     post_id: int, 
@@ -62,7 +62,7 @@ async def update_post_review(
     """
     return await _service.update_post_review(post_review, post_id, user_id, db)
 
-@router_post_review.post("/delete_post_review")
+@router_post_review.delete("/delete_post_review")
 async def delete_post_review(post_id: int, user_id: Annotated[int, Depends(get_current_user)], db: Session = Depends(get_db)):
     """ 
     Delete a post review from the database.

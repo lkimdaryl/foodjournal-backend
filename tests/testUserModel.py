@@ -1,113 +1,45 @@
-from fastapi import APIRouter
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey
-from sqlalchemy.engine import URL
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
-from sqlalchemy.pool import StaticPool
-from datetime import datetime
-from sqlalchemy.exc import IntegrityError
-from backend import database
-from auth.model import UserModel
-from dotenv import load_dotenv
-import os
-from main import app
-from auth.service import get_user_by_access_token, get_user_by_id
+import asyncio
+from conftest import client, SessionLocal
+from auth.service import get_user_by_id
 
-load_dotenv()
-DATABASE_URL = f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}/{os.getenv("DB_NAME")}'
-engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-Base.metadata.create_all(bind=engine)
 
-# Override the get_db dependency to use the test database
-def override_get_db():
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
+class TestUserModel:
 
-app.dependency_overrides[database.get_db] = override_get_db
+    @classmethod
+    def setup_class(cls):
+        cls.valid_user1 = {
+            "first_name": "Thomas",
+            "last_name": "Powell",
+            "username": "tpowell",
+            "password": "pass123",
+            "email": "tpowell@foodjournal.com"
+        }
+        cls.valid_user3 = {
+            "first_name": "Joe",
+            "last_name": "Bob",
+            "username": "joebob",
+            "password": "joebobpass",
+            "email": "joebob@gmail.com"
+        }
+        client.post("/api/v1/auth/create_user", json=cls.valid_user1)
+        client.post("/api/v1/auth/create_user", json=cls.valid_user3)
 
-# Initialize the test client with the FastAPI app
-client = TestClient(app)
+        # store user1 id from login for use in test_get_user_by_id
+        resp = client.post("/api/v1/auth/login", data={
+            "username": cls.valid_user1["username"],
+            "password": cls.valid_user1["password"]
+        })
+        cls.user1_id = resp.json()["user_id"]
 
-class testUserModel():
+    @staticmethod
+    def _get_token(user: dict) -> str:
+        response = client.post("/api/v1/auth/login", data={
+            "username": user["username"],
+            "password": user["password"]
+        })
+        return response.json()["access_token"]
 
-    def setup_class(self):
-        self.session = SessionLocal()
-
-        self.valid_user1 = UserModel(
-            first_name='Thomas',
-            last_name='Powell',
-            username='tpowell',
-            password='pass',
-            email='tpowell@foodjournal.com'
-        )
-        self.valid_user2 = UserModel(
-            first_name='Bob',
-            last_name='Jean',
-            username='bjean',
-            password='password',
-            email='bjean@gmail.com'
-        )
-        self.valid_user3 = UserModel(
-            first_name='Joe',
-            last_name='Bob',
-            username='joebob',
-            password='joebobpass',
-            email='joebob@gmail.com'
-        )
-        self.invalid_user1 = UserModel(
-            first_name='NoLast',
-            username='nolastname',
-            password='nolast',
-            email='nolast@nolast.com'
-        )
-
-        self.session.add(self.valid_user1)
-        self.session.add(self.valid_user2)
-        self.session.add(self.valid_user3)
-        self.session.commit
-
-    # test if a valid user's data was added to the db
-    def test_user_valid(self):
-        query_result = self.session.query(UserModel).filter_by(last_name='Powell').first()
-
-        assert query_result.first_name == 'Thomas'
-        assert query_result.last_name == 'Powell'
-        assert query_result.username == 'tpowell'
-        assert query_result.email == 'tpowell@foodjournal.com'
-    
-    # test if an invalid user's data was not added to the db
-    def test_user_invalid(self):
-        try:
-            self.session.add(self.invalid_user1)
-            self.session.commit()
-        except Exception as e:
-            self.session.rollback()
-
-        query_result = self.session.query(UserModel).filter_by(first_name='NoLast').first()
-        assert query_result is None
-    
-    # test if a valid user's data does not exist in the db after being deleted
-    def test_add_delete_same_user(self):
-        query_result = self.session.query(UserModel).filter_by(last_name='Jean').first()
-        assert query_result is not None
-
-        self.session.delete(query_result)
-        self.session.commit()
-
-        query_result = self.session.query(UserModel).filter_by(last_name='Jean').first()
-
-        assert query_result == None
-
-    # test creating user with valid info
+    # test creating a valid user
     def test_create_user(self):
         user_data = {
             "first_name": "Test",
@@ -116,221 +48,234 @@ class testUserModel():
             "password": "testuserpass",
             "email": "testuser@gmail.com"
         }
-        response = client.post("/api/v1/auth/create_user", data=user_data)
-        json_response = response.json()
-        user = json_response["user"]
-        assert user.first_name == user_data.first_name
-        assert user.last_name == user_data.last_name
-        assert user.username == user_data.username
-        assert user.email == user_data.email
+        response = client.post("/api/v1/auth/create_user", json=user_data)
+        assert response.status_code == 200
 
-    # test if duplicate email when creating user
+    # test duplicate email is rejected
     def test_create_user_duplicate_email(self):
         user_data = {
             "first_name": "Test",
             "last_name": "User",
-            "username": "testuser",
+            "username": "testuser_dup",
             "password": "testuserpass",
-            "email": self.valid_user1.email
+            "email": self.valid_user1["email"]
         }
-        response = client.post("/api/v1/auth/create_user", data=user_data)
+        response = client.post("/api/v1/auth/create_user", json=user_data)
         assert response.status_code == 400
-        json_response = response.json()
-        assert json_response == {"detail": f"Email {user_data['email']} already exists"}
+        assert response.json() == {"detail": f"Email {user_data['email']} already exists"}
 
-    # test if email is valid when creating user
+    # test invalid email is rejected
     def test_create_user_invalid_email(self):
         user_data = {
             "first_name": "Test",
             "last_name": "User",
-            "username": "testuser",
+            "username": "testuser_invalid",
             "password": "testuserpass",
             "email": "invalid_email"
         }
-        response = client.post("/api/v1/auth/create_user", data=user_data)
+        response = client.post("/api/v1/auth/create_user", json=user_data)
         assert response.status_code == 400
-        json_response = response.json()
-        assert json_response == {"detail": f"Invalid email address"}
 
-    # test if duplicate username when creating user
+    # test duplicate username is rejected
     def test_create_user_duplicate_username(self):
         user_data = {
             "first_name": "Test",
             "last_name": "User",
-            "username": self.valid_user1.username,
+            "username": self.valid_user1["username"],
             "password": "testuserpass",
-            "email": "testuser@gmail.com"
+            "email": "unique_email@gmail.com"
         }
-        response = client.post("/api/v1/auth/create_user", data=user_data)
+        response = client.post("/api/v1/auth/create_user", json=user_data)
         assert response.status_code == 400
-        json_response = response.json()
-        assert json_response == {"detail": f"User {user_data['username']} already exists"}
+        assert response.json() == {"detail": f"User {user_data['username']} already exists"}
 
-    # test if valid user is able to login
+    # test valid login succeeds
     def test_login(self):
-        login_data = {
-            "username": self.valid_user1.username,
-            "password": self.valid_user1.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
+        response = client.post("/api/v1/auth/login", data={
+            "username": self.valid_user1["username"],
+            "password": self.valid_user1["password"]
+        })
         json_response = response.json()
         assert "access_token" in json_response
         assert json_response["token_type"] == "bearer"
-        id = self.session.query(UserModel).filter_by(last_name='Powell').first().id
-        assert json_response["user_id"] == id
-        assert json_response["email"] == self.valid_user1.email
+        assert json_response["email"] == self.valid_user1["email"]
 
-    # test if invalid username is unable to login
+    # test login with email address instead of username
+    def test_login_with_email(self):
+        response = client.post("/api/v1/auth/login", data={
+            "username": self.valid_user1["email"],
+            "password": self.valid_user1["password"]
+        })
+        assert response.status_code == 200
+        assert "access_token" in response.json()
+
+    # test invalid username is rejected
     def test_invalid_username_login(self):
-        invalid_login_data = {
+        response = client.post("/api/v1/auth/login", data={
             "username": "fakeUser",
             "password": "fakePass"
-        }
-        response = client.post("/api/v1/auth/login", data=invalid_login_data)
+        })
         assert response.status_code == 401
         assert response.json() == {"detail": "Invalid email or username, try again."}
 
-    # test if invalid password is unable to login
+    # test invalid password is rejected
     def test_invalid_password_login(self):
-        invalid_pass = {
-            "username": self.valid_user1.username,
-            "password": "fakePass"
-        }
-        response = client.post("/api/v1/auth/login", data=invalid_pass)
+        response = client.post("/api/v1/auth/login", data={
+            "username": self.valid_user1["username"],
+            "password": "wrongpass"
+        })
         assert response.status_code == 401
         assert response.json() == {"detail": "Invalid password, try again."}
 
-    # test update user if no update data provided
+    # test unauthenticated request to update_user is rejected
+    def test_update_user_no_auth(self):
+        response = client.patch("/api/v1/auth/update_user", json={"first_name": "Hacker"})
+        assert response.status_code == 403
+
+    # test unauthenticated request to get_user is rejected
+    def test_get_user_no_auth(self):
+        response = client.get("/api/v1/auth/get_user")
+        assert response.status_code == 403
+
+    # test update with no data returns 400
     def test_no_update_data(self):
-        login_data = {
-            "username": self.valid_user3.username,
-            "password": self.valid_user3.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
-        json_response = response.json()
-        assert "access_token" in json_response
-        token = json_response["access_token"]
+        token = self._get_token(self.valid_user3)
+        response = client.patch(
+            "/api/v1/auth/update_user",
+            json={},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 400
+        assert response.json() == {"detail": "No fields to update"}
 
-        update_data = {}
-        headers = {
-            "Authorization": f'Bearer {token}'
-        }
-        update_response = client.patch("/api/v1/auth/update_user", data=update_data, headers=headers)
-        assert update_response.status_code == 400
-        assert update_response.json() == {"detail": "No fields to update"}
-
-    # test update user if update email already exists in db
+    # test update with a duplicate email is rejected
     def test_duplicate_update_email(self):
-        login_data = {
-            "username": self.valid_user3.username,
-            "password": self.valid_user3.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
-        json_response = response.json()
-        assert "access_token" in json_response
-        token = json_response.get("acces_token")
+        token = self._get_token(self.valid_user3)
+        response = client.patch(
+            "/api/v1/auth/update_user",
+            json={"email": self.valid_user1["email"]},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 400
+        assert response.json() == {"detail": f'Email {self.valid_user1["email"]} already exists'}
 
-        update_data = {
-            "email": self.valid_user1.email
-        }
-        headers = {
-            "Authorization": f'Bearer {token}'
-        }
-        update_response = client.patch("/api/v1/auth/update_user", data=update_data, headers=headers)
-        assert update_response.status_code == 400
-        assert update_response.json() == {"detail": f'Email {update_data["email"]} already exists'}
-
-    # test update user if update email is invalid
+    # test update with an invalid email is rejected
     def test_invalid_update_email(self):
-        login_data = {
-            "username": self.valid_user3.username,
-            "password": self.valid_user3.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
-        json_response = response.json()
-        assert "access_token" in json_response
-        token = json_response.get("acces_token")
+        token = self._get_token(self.valid_user3)
+        response = client.patch(
+            "/api/v1/auth/update_user",
+            json={"email": "invalidEmail"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 400
 
-        update_data = {
-            "email": "invalidEmail"
-        }
-        headers = {
-            "Authorization": f'Bearer {token}'
-        }
-        update_response = client.patch("/api/v1/auth/update_user", data=update_data, headers=headers)
-        assert update_response.status_code == 400
-        assert update_response.json() == {"detail": f'Invalid email address'}
-
-    # test update user if update username already exists in db
+    # test update with a duplicate username is rejected
     def test_duplicate_update_username(self):
-        login_data = {
-            "username": self.valid_user3.username,
-            "password": self.valid_user3.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
-        json_response = response.json()
-        assert "access_token" in json_response
-        token = json_response.get("acces_token")
+        token = self._get_token(self.valid_user3)
+        response = client.patch(
+            "/api/v1/auth/update_user",
+            json={"username": self.valid_user1["username"]},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 400
+        assert response.json() == {"detail": f'User {self.valid_user1["username"]} already exists'}
 
-        update_data = {
-            "username": self.valid_user1.username
-        }
-        headers = {
-            "Authorization": f'Bearer {token}'
-        }
-        update_response = client.patch("/api/v1/auth/update_user", data=update_data, headers=headers)
-        assert update_response.status_code == 400
-        assert update_response.json() == {"detail": f'User {update_data["username"]} already exists'}
-    
-    # test update user works for valid input
+    # test valid update succeeds
     def test_update_user(self):
-        login_data = {
-            "username": self.valid_user3.username,
-            "password": self.valid_user3.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
-        json_response = response.json()
-        assert "access_token" in json_response
-        token = json_response.get("acces_token")
+        token = self._get_token(self.valid_user3)
+        update_data = {"first_name": "JoeBob", "last_name": "Joe", "username": "joebobjoe"}
+        response = client.patch(
+            "/api/v1/auth/update_user",
+            json=update_data,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.json() == {"message": "User was updated"}
 
-        update_data = {
-            "first_name": "JoeBob",
-            "last_name": "Joe",
-            "username": "joebobjoe"
-        }
-        headers = {
-            "Authorization": f'Bearer {token}'
-        }
-        update_response = client.patch("/api/v1/auth/update_user", data=update_data, headers=headers)
-        assert update_response.json() == {"message":"User was updated"}
+    # test updating password invalidates old one and enables new one
+    # note: valid_user3's username is now "joebobjoe" after test_update_user
+    def test_update_password(self):
+        resp = client.post("/api/v1/auth/login", data={
+            "username": "joebobjoe",
+            "password": "joebobpass"
+        })
+        token = resp.json()["access_token"]
 
-        updated_user = self.session.query(UserModel).filter_by(last_name='Joe').first()
-        assert updated_user.first_name == update_data["first_name"]
-        assert updated_user.last_name == update_data["last_name"]
-        assert updated_user.username == update_data["username"]
+        client.patch(
+            "/api/v1/auth/update_user",
+            json={"password": "newpassword123"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
 
-    # test get user by id
+        # old password should no longer work
+        resp = client.post("/api/v1/auth/login", data={
+            "username": "joebobjoe", "password": "joebobpass"
+        })
+        assert resp.status_code == 401
+
+        # new password should work
+        resp = client.post("/api/v1/auth/login", data={
+            "username": "joebobjoe", "password": "newpassword123"
+        })
+        assert resp.status_code == 200
+
+    # test get_user endpoint returns authenticated user's profile without password
+    def test_get_user(self):
+        token = self._get_token(self.valid_user1)
+        response = client.get(
+            "/api/v1/auth/get_user",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        user = response.json()
+        assert user["username"] == self.valid_user1["username"]
+        assert user["email"] == self.valid_user1["email"]
+        assert "password" not in user
+
+    # test get_user returns exactly the expected set of fields
+    def test_get_user_response_shape(self):
+        token = self._get_token(self.valid_user1)
+        response = client.get(
+            "/api/v1/auth/get_user",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        expected_keys = {"id", "first_name", "last_name", "username", "email", "profile_picture"}
+        assert set(response.json().keys()) == expected_keys
+
+    # test get_user_by_id service returns the correct username
     def test_get_user_by_id(self):
-        id = self.session.query(UserModel).filter_by(last_name='Powell').first().id
-        username = get_user_by_id(id, self.session)
-        assert username == self.valid_user1.username
+        db = SessionLocal()
+        try:
+            result = asyncio.run(get_user_by_id(self.user1_id, db))
+            assert result == self.valid_user1["username"]
+        finally:
+            db.close()
 
-    # test get user by access token
-    def test_get_user_by_access_token(self):
-        login_data = {
-            "username": self.valid_user1.username,
-            "password": self.valid_user1.password
-        }
-        response = client.post("/api/v1/auth/login", data=login_data)
-        json_response = response.json()
-        assert "access_token" in json_response
-        token = json_response["access_token"]
-        
-        user = get_user_by_access_token(token, self.session)
-        expected_user = self.session.query(UserModel).filter_by(last_name='Powell').first()
-        assert user == expected_user
+    # test that a blacklisted token is rejected on other protected endpoints
+    def test_blacklisted_token_on_update(self):
+        token = self._get_token(self.valid_user1)
+        client.post(
+            "/api/v1/auth/logout",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        response = client.patch(
+            "/api/v1/auth/update_user",
+            json={"first_name": "Ghost"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 401
 
-    def teardown_class(self):
-        self.session.rollback()
-        self.session.close()
-        Base.metadata.drop_all(bind=engine)
+    # test logout invalidates the token
+    def test_logout(self):
+        token = self._get_token(self.valid_user1)
+        response = client.post(
+            "/api/v1/auth/logout",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+
+        follow_up = client.get(
+            "/api/v1/auth/get_user",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert follow_up.status_code == 401

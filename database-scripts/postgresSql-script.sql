@@ -1,30 +1,32 @@
-DROP TABLE post;
-DROP TABLE fd_users;
+DROP TABLE IF EXISTS post;
+DROP TABLE IF EXISTS fd_users;
+DROP TABLE IF EXISTS blacklist;
 
 CREATE TABLE IF NOT EXISTS fd_users (
   id SERIAL PRIMARY KEY,
   first_name VARCHAR(64) NOT NULL,
   last_name VARCHAR(64) NOT NULL,
-  username VARCHAR(255) NOT NULL,
+  username VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  email VARCHAR(255),
-  profile_picture TYPE TEXT,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  profile_picture TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS post (
   id SERIAL PRIMARY KEY,
-  user_id INT NOT NULL REFERENCES fd_users(id),
+  user_id INT NOT NULL REFERENCES fd_users(id) ON DELETE CASCADE,
   food_name VARCHAR(64) NOT NULL,
-  image TYPE TEXT,
+  image TEXT,
   restaurant_name VARCHAR(64),
-  rating REAL NOT NULL,
+  rating NUMERIC(2,1) NOT NULL CHECK (rating >= 1 AND rating <= 5),
   review VARCHAR(500) NOT NULL,
-  tags VARCHAR(500)
+  tags VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS blacklist (
   id SERIAL PRIMARY KEY,
-  access_token VARCHAR(500) NOT NULL,
+  access_token TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
